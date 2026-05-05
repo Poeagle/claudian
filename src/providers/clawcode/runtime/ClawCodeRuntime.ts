@@ -85,7 +85,10 @@ export class ClawCodeRuntime implements ChatRuntime {
     if (this._ready) return true;
 
     const cliPath = this.resolveCliPath();
-    if (!cliPath) return false;
+    if (!cliPath) {
+      console.error('[ClawCode] CLI not found at ~/.cargo/bin/claw or PATH');
+      return false;
+    }
 
     this.abortController = new AbortController();
 
@@ -93,6 +96,15 @@ export class ClawCodeRuntime implements ChatRuntime {
       this.process = spawn(cliPath, ['--structured'], {
         stdio: ['pipe', 'pipe', 'pipe'],
         signal: this.abortController.signal,
+      });
+
+      // Log stderr for debugging
+      this.process.stderr?.on('data', (data: Buffer) => {
+        console.error('[ClawCode stderr]', data.toString());
+      });
+
+      this.process.on('error', (err) => {
+        console.error('[ClawCode spawn error]', err.message);
       });
 
       this.lineReader = createInterface({ input: this.process.stdout! });
@@ -107,7 +119,7 @@ export class ClawCodeRuntime implements ChatRuntime {
               resolve(true);
             }
           } catch {
-            // ignore parse errors
+            // ignore parse errors from non-JSON lines
           }
         };
 
@@ -115,10 +127,14 @@ export class ClawCodeRuntime implements ChatRuntime {
 
         setTimeout(() => {
           this.lineReader!.off('line', onLine);
-          if (!this._ready) resolve(false);
-        }, 10_000);
+          if (!this._ready) {
+            console.error('[ClawCode] Timed out waiting for ready event');
+            resolve(false);
+          }
+        }, 15_000);
       });
-    } catch {
+    } catch (err) {
+      console.error('[ClawCode] ensureReady error:', err);
       return false;
     }
   }

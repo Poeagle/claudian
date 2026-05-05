@@ -4,10 +4,16 @@ import type {
   ProviderUIOption,
 } from '../../../core/providers/types';
 
+const CLAWCODE_MODEL_IDS = new Set([
+  'claw-sonnet-4-6',
+  'claw-opus-4-6',
+  'claw-gpt-4o',
+]);
+
 const CLAWCODE_MODELS: ProviderUIOption[] = [
-  { value: 'claude-opus-4-6', label: 'Claude Opus 4 (claw)', group: 'ClawCode' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4 (claw)', group: 'ClawCode' },
-  { value: 'gpt-4o', label: 'GPT-4o (claw)', group: 'ClawCode' },
+  { value: 'claw-sonnet-4-6', label: 'Sonnet 4.6', group: 'ClawCode' },
+  { value: 'claw-opus-4-6', label: 'Opus 4.6', group: 'ClawCode' },
+  { value: 'claw-gpt-4o', label: 'GPT-4o', group: 'ClawCode' },
 ];
 
 export const clawCodeChatUIConfig: ProviderChatUIConfig = {
@@ -16,8 +22,7 @@ export const clawCodeChatUIConfig: ProviderChatUIConfig = {
   },
 
   ownsModel(model: string): boolean {
-    // ClawCode supports any model via ProviderClient — accept all as owned
-    return true;
+    return CLAWCODE_MODEL_IDS.has(model);
   },
 
   isAdaptiveReasoningModel(): boolean {
@@ -37,7 +42,7 @@ export const clawCodeChatUIConfig: ProviderChatUIConfig = {
   },
 
   isDefaultModel(model: string): boolean {
-    return model === 'claude-opus-4-6';
+    return model === 'claw-sonnet-4-6';
   },
 
   applyModelDefaults(): void {
