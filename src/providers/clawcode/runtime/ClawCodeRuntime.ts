@@ -97,12 +97,6 @@ export class ClawCodeRuntime implements ChatRuntime {
 
     this.abortController = new AbortController();
 
-    // Use the model from the current settings
-    const settings = (this.plugin.settings as Record<string, unknown>);
-    const model = (settings.model as string) || 'gpt-4o';
-    // Map UI model ids to actual ClawCode model ids
-    // Map UI model ids to actual ClawCode model ids (strip "claw-" prefix)
-    const actualModel = model.startsWith('claw-') ? model.slice(5) : model;
 
     // Read environment variables from Claudian settings (shared + provider)
     const sharedEnvText = this.plugin.getEnvironmentVariablesForScope('shared');
@@ -117,7 +111,7 @@ export class ClawCodeRuntime implements ChatRuntime {
     };
 
     try {
-      this.process = spawn(cliPath, ['--structured', '--model', actualModel], {
+      this.process = spawn(cliPath, ['--structured'], {
         stdio: ['pipe', 'pipe', 'pipe'],
         signal: this.abortController.signal,
         env: spawnEnv as NodeJS.ProcessEnv,
