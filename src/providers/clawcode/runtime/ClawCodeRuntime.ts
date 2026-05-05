@@ -257,8 +257,15 @@ export class ClawCodeRuntime implements ChatRuntime {
     switch (event.type) {
       case 'text':
         return { type: 'text', content: event.text ?? '' };
-      case 'tool_use':
-        return { type: 'tool_use', id: event.tool_use_id ?? '', name: event.tool_name ?? '', input: {} };
+      case 'thinking':
+        return { type: 'thinking', content: event.text ?? '' };
+      case 'tool_use': {
+        let input: Record<string, unknown> = {};
+        try {
+          if (event.tool_input) input = JSON.parse(event.tool_input);
+        } catch { /* use empty object */ }
+        return { type: 'tool_use', id: event.tool_use_id ?? '', name: event.tool_name ?? '', input };
+      }
       case 'tool_result':
         return { type: 'tool_result', id: event.tool_use_id ?? '', content: event.tool_output ?? '', isError: event.is_error };
       case 'usage':
