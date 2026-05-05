@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { createInterface, type Interface as ReadlineInterface } from 'readline';
 import { join } from 'path';
 
@@ -98,13 +98,15 @@ export class ClawCodeRuntime implements ChatRuntime {
 
     this.abortController = new AbortController();
 
-    // Read model from provider-specific settings; fall back to ClawCode's own config
+    // If user configured a custom model in settings, write it to ClawCode's config
+    // so the subprocess picks it up without needing a strict --model flag.
     const clawSettings = getClawCodeProviderSettings(
       this.plugin.settings as unknown as Record<string, unknown>,
     );
-    const spawnArgs = clawSettings.model
-      ? ['--structured', '--model', clawSettings.model]
-      : ['--structured'];
+    if (clawSettings.model) {
+      this.writeModelToConfig(clawSettings.model);
+    }
+    const spawnArgs = ['--structured'];
 
     // Read environment variables from Claudian settings (shared + provider)
     const sharedEnvText = this.plugin.getEnvironmentVariablesForScope('shared');
@@ -290,6 +292,20 @@ export class ClawCodeRuntime implements ChatRuntime {
   async reloadMcpServers(): Promise<void> {}
   consumeTurnMetadata(): ChatTurnMetadata { return {}; }
   async rewind(_u: string, _a: string): Promise<ChatRewindResult> { throw new Error('Not supported'); }
+
+  private writeModelToConfig(model: string): void {
+    try {
+      const configPath = join(process.env.HOME || '/tmp', '.claw', 'settings.json');
+      let config: Record<string, unknown> = {};
+      if (existsSync(configPath)) {
+        config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      }
+      config.model = model;
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+    } catch {
+      // Silently ignore — ClawCode will use its own default
+    }
+  }
 
   private resolveCliPath(): string | null {
     const testPath = '/Users/ymchen/.cargo/bin/claw';
