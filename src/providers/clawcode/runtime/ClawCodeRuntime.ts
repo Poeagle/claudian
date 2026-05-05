@@ -25,6 +25,7 @@ import type {
   StreamChunk,
 } from '../../../core/types';
 import { parseEnvironmentVariables } from '../../../utils/env';
+import { getVaultPath } from '../../../utils/path';
 import type ClaudianPlugin from '../../../main';
 import { CLAWCODE_PROVIDER_CAPABILITIES } from '../capabilities';
 import { getClawCodeProviderSettings } from '../settings';
@@ -121,7 +122,9 @@ export class ClawCodeRuntime implements ChatRuntime {
     };
 
     try {
+      const vaultPath = getVaultPath(this.plugin.app) ?? process.cwd();
       this.process = spawn(cliPath, spawnArgs, {
+        cwd: vaultPath,
         stdio: ['pipe', 'pipe', 'pipe'],
         signal: this.abortController.signal,
         env: spawnEnv as NodeJS.ProcessEnv,
