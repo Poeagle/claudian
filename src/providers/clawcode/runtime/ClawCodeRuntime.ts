@@ -24,7 +24,6 @@ import type {
   SlashCommand,
   StreamChunk,
 } from '../../../core/types';
-import { ProviderSettingsCoordinator } from '../../../core/providers/ProviderSettingsCoordinator';
 import { parseEnvironmentVariables } from '../../../utils/env';
 import type ClaudianPlugin from '../../../main';
 import { CLAWCODE_PROVIDER_CAPABILITIES } from '../capabilities';
@@ -98,14 +97,9 @@ export class ClawCodeRuntime implements ChatRuntime {
 
     this.abortController = new AbortController();
 
-    // Resolve model from provider-specific settings and pass to ClawCode
-    const providerSettings = ProviderSettingsCoordinator.getProviderSettingsSnapshot(
-      this.plugin.settings as unknown as Record<string, unknown>,
-      this.providerId,
-    );
-    const rawModel = (providerSettings.model as string) || '';
-    const actualModel = rawModel.startsWith('claw-') ? rawModel.slice(5) : rawModel;
-    const spawnArgs = actualModel ? ['--structured', '--model', actualModel] : ['--structured'];
+    // ClawCode reads its own config from ~/.claw/ and .claw/settings.json.
+    // No --model flag — ClawCode resolves the model from its own config files.
+    const spawnArgs = ['--structured'];
 
     // Read environment variables from Claudian settings (shared + provider)
     const sharedEnvText = this.plugin.getEnvironmentVariablesForScope('shared');
