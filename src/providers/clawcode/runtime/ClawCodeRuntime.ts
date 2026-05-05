@@ -89,7 +89,7 @@ export class ClawCodeRuntime implements ChatRuntime {
     };
   }
 
-  async ensureReady(_options?: ChatRuntimeEnsureReadyOptions): Promise<boolean> {
+  async ensureReady(options?: ChatRuntimeEnsureReadyOptions): Promise<boolean> {
     if (this._ready) return true;
 
     const cliPath = this.resolveCliPath();
@@ -97,16 +97,31 @@ export class ClawCodeRuntime implements ChatRuntime {
 
     this.abortController = new AbortController();
 
-    // Read environment variables from Claudian settings
-    const envText = this.plugin.getActiveEnvironmentVariables(this.providerId);
-    const customEnv = parseEnvironmentVariables(envText);
+    // Use the model from the current settings
+    const settings = (this.plugin.settings as Record<string, unknown>);
+    const model = (settings.model as string) || 'gpt-4o';
+    // Map UI model ids to actual ClawCode model ids
+    const modelMap: Record<string, string> = {
+      'claw-sonnet-4-6': 'claude-sonnet-4-6',
+      'claw-opus-4-6': 'claude-opus-4-6',
+      'claw-gpt-4o': 'gpt-4o',
+    };
+    const actualModel = modelMap[model] || model;
+
+    // Read environment variables from Claudian settings (shared + provider)
+    const sharedEnvText = this.plugin.getEnvironmentVariablesForScope('shared');
+    const providerEnvText = this.plugin.getActiveEnvironmentVariables(this.providerId);
+    const customEnv = {
+      ...parseEnvironmentVariables(sharedEnvText),
+      ...parseEnvironmentVariables(providerEnvText),
+    };
     const spawnEnv: Record<string, string | undefined> = {
       ...process.env,
       ...customEnv,
     };
 
     try {
-      this.process = spawn(cliPath, ['--structured'], {
+      this.process = spawn(cliPath, ['--structured', '--model', actualModel], {
         stdio: ['pipe', 'pipe', 'pipe'],
         signal: this.abortController.signal,
         env: spawnEnv as NodeJS.ProcessEnv,
