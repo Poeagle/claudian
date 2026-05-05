@@ -51,6 +51,10 @@ interface StructuredEvent {
 export class ClawCodeRuntime implements ChatRuntime {
   readonly providerId = 'clawcode' as const;
 
+  constructor() {
+    console.log('[ClawCode] ClawCodeRuntime constructor called');
+  }
+
   private process: ChildProcess | null = null;
   private lineReader: ReadlineInterface | null = null;
   private _ready = false;
@@ -146,7 +150,9 @@ export class ClawCodeRuntime implements ChatRuntime {
     turnOrPrompt: PreparedChatTurn,
     _conversationHistory?: ChatMessage[],
   ): AsyncGenerator<StreamChunk> {
+    console.log('[ClawCode] query() called, _ready=', this._ready, 'process=', !!this.process);
     if (!this._ready || !this.process?.stdin || !this.lineReader) {
+      console.log('[ClawCode] runtime not ready, ensureReady was not called or failed');
       yield { type: 'error', content: 'ClawCode runtime is not ready' };
       return;
     }
@@ -271,9 +277,9 @@ export class ClawCodeRuntime implements ChatRuntime {
   async rewind(_uid: string, _aid: string): Promise<ChatRewindResult> { throw new Error('Not supported'); }
 
   private resolveCliPath(): string | null {
-    // 1. Check ~/.cargo/bin/claw (most common install path)
-    const cargoPath = join(homedir(), '.cargo', 'bin', 'claw');
-    if (existsSync(cargoPath)) return cargoPath;
+    // Hardcoded path for testing — replace with proper resolution later
+    const testPath = '/Users/ymchen/.cargo/bin/claw';
+    if (existsSync(testPath)) return testPath;
 
     // 2. Try via PATH
     const envPath = process.env.PATH || '';
