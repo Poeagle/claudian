@@ -1,13 +1,13 @@
 import type { ProviderRegistration } from '../../core/providers/types';
-import { getClawCodeWorkspaceServices } from './app/ClawCodeWorkspaceServices';
 import { CLAWCODE_PROVIDER_CAPABILITIES } from './capabilities';
 import { ClawCodeRuntime } from './runtime/ClawCodeRuntime';
+import { getClawCodeProviderSettings } from './settings';
 import { clawCodeChatUIConfig } from './ui/ClawCodeChatUIConfig';
 
 export const clawCodeProviderRegistration: ProviderRegistration = {
   displayName: 'ClawCode',
   blankTabOrder: 10,
-  isEnabled: () => true,
+  isEnabled: (settings) => getClawCodeProviderSettings(settings as Record<string, unknown>).enabled,
   capabilities: CLAWCODE_PROVIDER_CAPABILITIES,
   environmentKeyPatterns: [],
   chatUIConfig: clawCodeChatUIConfig,

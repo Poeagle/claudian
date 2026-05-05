@@ -3,19 +3,18 @@ import type {
   ProviderReasoningOption,
   ProviderUIOption,
 } from '../../../core/providers/types';
+import { getClawCodeProviderSettings } from '../settings';
 
-// ClawCode reads model from its own config files (~/.claw/settings.json).
-// The model selector shows a single entry; the actual model is configured
-// in ClawCode's own configuration, not in Claudian.
-const CLAWCODE_MODEL_ID = 'claw-default';
-
-const CLAWCODE_MODELS: ProviderUIOption[] = [
-  { value: CLAWCODE_MODEL_ID, label: 'ClawCode (config)', group: 'ClawCode' },
-];
+// A single dynamic model entry — the actual model name comes from settings.
+const CLAWCODE_MODEL_ID = 'clawcode-model';
 
 export const clawCodeChatUIConfig: ProviderChatUIConfig = {
-  getModelOptions(): ProviderUIOption[] {
-    return CLAWCODE_MODELS;
+  getModelOptions(settings): ProviderUIOption[] {
+    const clawSettings = getClawCodeProviderSettings(settings as Record<string, unknown>);
+    const label = clawSettings.model
+      ? `ClawCode (${clawSettings.model})`
+      : 'ClawCode (from config)';
+    return [{ value: CLAWCODE_MODEL_ID, label, group: 'ClawCode' }];
   },
 
   ownsModel(model: string): boolean {
