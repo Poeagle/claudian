@@ -4,17 +4,25 @@ import type {
   ProviderUIOption,
 } from '../../../core/providers/types';
 
-const CLAWCODE_MODEL_IDS = new Set([
-  'claw-sonnet-4-6',
-  'claw-opus-4-6',
-  'claw-gpt-4o',
-]);
-
+// All models that ClawCode can support via ProviderClient.
+// ClawCode routes model names to the correct provider automatically.
 const CLAWCODE_MODELS: ProviderUIOption[] = [
-  { value: 'claw-sonnet-4-6', label: 'Sonnet 4.6', group: 'ClawCode' },
-  { value: 'claw-opus-4-6', label: 'Opus 4.6', group: 'ClawCode' },
-  { value: 'claw-gpt-4o', label: 'GPT-4o', group: 'ClawCode' },
+  // Anthropic
+  { value: 'claw-claude-sonnet-4-6', label: 'Claude Sonnet 4.6', group: 'Anthropic (claw)' },
+  { value: 'claw-claude-opus-4-6', label: 'Claude Opus 4.6', group: 'Anthropic (claw)' },
+  { value: 'claw-claude-haiku-4-5', label: 'Claude Haiku 4.5', group: 'Anthropic (claw)' },
+  // OpenAI
+  { value: 'claw-gpt-4o', label: 'GPT-4o', group: 'OpenAI (claw)' },
+  { value: 'claw-gpt-4o-mini', label: 'GPT-4o-mini', group: 'OpenAI (claw)' },
+  { value: 'claw-o3', label: 'o3', group: 'OpenAI (claw)' },
+  { value: 'claw-o4-mini', label: 'o4-mini', group: 'OpenAI (claw)' },
+  // xAI
+  { value: 'claw-grok-3', label: 'Grok 3', group: 'xAI (claw)' },
+  // DeepSeek
+  { value: 'claw-deepseek-chat', label: 'DeepSeek Chat', group: 'DeepSeek (claw)' },
 ];
+
+const CLAWCODE_MODEL_IDS = new Set(CLAWCODE_MODELS.map((m) => m.value));
 
 export const clawCodeChatUIConfig: ProviderChatUIConfig = {
   getModelOptions(): ProviderUIOption[] {
@@ -42,7 +50,7 @@ export const clawCodeChatUIConfig: ProviderChatUIConfig = {
   },
 
   isDefaultModel(model: string): boolean {
-    return model === 'claw-sonnet-4-6';
+    return model === 'claw-gpt-4o';
   },
 
   applyModelDefaults(): void {

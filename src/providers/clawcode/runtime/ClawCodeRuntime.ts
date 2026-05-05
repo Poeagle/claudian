@@ -101,12 +101,8 @@ export class ClawCodeRuntime implements ChatRuntime {
     const settings = (this.plugin.settings as Record<string, unknown>);
     const model = (settings.model as string) || 'gpt-4o';
     // Map UI model ids to actual ClawCode model ids
-    const modelMap: Record<string, string> = {
-      'claw-sonnet-4-6': 'claude-sonnet-4-6',
-      'claw-opus-4-6': 'claude-opus-4-6',
-      'claw-gpt-4o': 'gpt-4o',
-    };
-    const actualModel = modelMap[model] || model;
+    // Map UI model ids to actual ClawCode model ids (strip "claw-" prefix)
+    const actualModel = model.startsWith('claw-') ? model.slice(5) : model;
 
     // Read environment variables from Claudian settings (shared + provider)
     const sharedEnvText = this.plugin.getEnvironmentVariablesForScope('shared');
