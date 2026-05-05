@@ -6,6 +6,7 @@ import type {
 } from '../../../core/providers/types';
 
 import { ClawCodeCliResolver } from '../cli/ClawCodeCliResolver';
+import { clawCodeSettingsTabRenderer } from '../ui/ClawCodeSettingsTab';
 
 export interface ClawCodeWorkspaceServices extends ProviderWorkspaceServices {
   cliResolver: ProviderCliResolver;
@@ -21,6 +22,7 @@ export const clawCodeWorkspaceRegistration: ProviderWorkspaceRegistration<ClawCo
   async initialize(): Promise<ClawCodeWorkspaceServices> {
     const services: ClawCodeWorkspaceServices = {
       cliResolver: new ClawCodeCliResolver(),
+      settingsTabRenderer: clawCodeSettingsTabRenderer,
     };
     workspaceServices = services;
     return services;
