@@ -19,8 +19,8 @@ export const clawCodeProviderRegistration: ProviderRegistration = {
       return false;
     },
   },
-  createRuntime: (_options) => {
-    return new ClawCodeRuntime();
+  createRuntime: ({ plugin }) => {
+    return new ClawCodeRuntime(plugin);
   },
   createTitleGenerationService: () => ({
     async generateTitle(_conversationId, _userMessage, _callback) {
