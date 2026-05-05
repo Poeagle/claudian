@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { existsSync } from 'fs';
 import { createInterface, type Interface as ReadlineInterface } from 'readline';
+import { homedir } from 'os';
+import { join } from 'path';
 
 import type { ChatRuntime } from '../../../core/runtime/ChatRuntime';
 import type {
@@ -23,7 +26,6 @@ import type {
   StreamChunk,
 } from '../../../core/types';
 import { CLAWCODE_PROVIDER_CAPABILITIES } from '../capabilities';
-import { getClawCodeWorkspaceServices } from '../app/ClawCodeWorkspaceServices';
 
 interface StdinMessage {
   type: 'message';
@@ -85,10 +87,8 @@ export class ClawCodeRuntime implements ChatRuntime {
     if (this._ready) return true;
 
     const cliPath = this.resolveCliPath();
-    if (!cliPath) {
-      console.error('[ClawCode] CLI not found at ~/.cargo/bin/claw or PATH');
-      return false;
-    }
+    console.log('[ClawCode] resolved CLI path:', cliPath);
+    if (!cliPath) return false;
 
     this.abortController = new AbortController();
 
@@ -98,13 +98,16 @@ export class ClawCodeRuntime implements ChatRuntime {
         signal: this.abortController.signal,
       });
 
-      // Log stderr for debugging
-      this.process.stderr?.on('data', (data: Buffer) => {
-        console.error('[ClawCode stderr]', data.toString());
+      this.process.on('error', (err) => {
+        console.error('[ClawCode] spawn error:', err.message);
       });
 
-      this.process.on('error', (err) => {
-        console.error('[ClawCode spawn error]', err.message);
+      this.process.stderr?.on('data', (data: Buffer) => {
+        console.error('[ClawCode] stderr:', data.toString().trim());
+      });
+
+      this.process.on('exit', (code, signal) => {
+        console.log(`[ClawCode] exited code=${code} signal=${signal}`);
       });
 
       this.lineReader = createInterface({ input: this.process.stdout! });
@@ -119,7 +122,7 @@ export class ClawCodeRuntime implements ChatRuntime {
               resolve(true);
             }
           } catch {
-            // ignore parse errors from non-JSON lines
+            // ignore non-JSON startup output
           }
         };
 
@@ -128,7 +131,7 @@ export class ClawCodeRuntime implements ChatRuntime {
         setTimeout(() => {
           this.lineReader!.off('line', onLine);
           if (!this._ready) {
-            console.error('[ClawCode] Timed out waiting for ready event');
+            console.error('[ClawCode] timeout waiting for ready');
             resolve(false);
           }
         }, 15_000);
@@ -153,7 +156,6 @@ export class ClawCodeRuntime implements ChatRuntime {
     this.turnDone = false;
     this.turnError = null;
 
-    // Send user message via stdin
     const msg: StdinMessage = {
       type: 'message',
       role: 'user',
@@ -161,7 +163,6 @@ export class ClawCodeRuntime implements ChatRuntime {
     };
     this.process.stdin.write(JSON.stringify(msg) + '\n');
 
-    // Set up response handler
     const onLine = (line: string) => {
       try {
         const event: StructuredEvent = JSON.parse(line);
@@ -182,7 +183,7 @@ export class ClawCodeRuntime implements ChatRuntime {
           }
         }
       } catch {
-        // ignore parse errors
+        // ignore
       }
     };
 
@@ -214,10 +215,6 @@ export class ClawCodeRuntime implements ChatRuntime {
         yield this.chunkBuffer.shift()!;
       }
 
-      if (this.turnError) {
-        yield { type: 'error', content: (this.turnError as Error).message };
-      }
-
       yield { type: 'done' };
     } finally {
       this.lineReader.off('line', onLine);
@@ -230,29 +227,11 @@ export class ClawCodeRuntime implements ChatRuntime {
       case 'text':
         return { type: 'text', content: event.text ?? '' };
       case 'tool_use':
-        return {
-          type: 'tool_use',
-          id: event.tool_use_id ?? '',
-          name: event.tool_name ?? '',
-          input: {},
-        };
+        return { type: 'tool_use', id: event.tool_use_id ?? '', name: event.tool_name ?? '', input: {} };
       case 'tool_result':
-        return {
-          type: 'tool_result',
-          id: event.tool_use_id ?? '',
-          content: event.tool_output ?? '',
-          isError: event.is_error,
-        };
+        return { type: 'tool_result', id: event.tool_use_id ?? '', content: event.tool_output ?? '', isError: event.is_error };
       case 'usage':
-        return {
-          type: 'usage',
-          usage: {
-            inputTokens: event.input_tokens ?? 0,
-            contextWindow: 0,
-            contextTokens: 0,
-            percentage: 0,
-          },
-        };
+        return { type: 'usage', usage: { inputTokens: event.input_tokens ?? 0, contextWindow: 0, contextTokens: 0, percentage: 0 } };
       case 'error':
         return { type: 'error', content: event.content ?? 'Unknown error' };
       default:
@@ -265,99 +244,44 @@ export class ClawCodeRuntime implements ChatRuntime {
     this._ready = false;
   }
 
-  resetSession(): void {
-    this.cancel();
-  }
+  resetSession(): void { this.cancel(); }
+  cleanup(): void { this.cancel(); this.lineReader?.close(); }
+  isReady(): boolean { return this._ready; }
+  getSessionId(): string | null { return this._sessionId; }
+  consumeSessionInvalidation(): boolean { return false; }
+  setResumeCheckpoint(_checkpointId: string | undefined): void { /* not supported */ }
+  syncConversationState(_conv: ChatRuntimeConversationState | null, _paths?: string[]): void { /* not supported */ }
 
-  cleanup(): void {
-    this.cancel();
-    this.lineReader?.close();
-  }
+  setApprovalCallback(_cb: ApprovalCallback | null): void {}
+  setApprovalDismisser(_d: (() => void) | null): void {}
+  setAskUserQuestionCallback(_cb: AskUserQuestionCallback | null): void {}
+  setExitPlanModeCallback(_cb: ExitPlanModeCallback | null): void {}
+  setPermissionModeSyncCallback(_cb: ((mode: string) => void) | null): void {}
+  setSubagentHookProvider(_fn: () => SubagentRuntimeState): void {}
+  setAutoTurnCallback(_cb: ((result: AutoTurnResult) => void) | null): void {}
 
-  isReady(): boolean {
-    return this._ready;
-  }
-
-  getSessionId(): string | null {
-    return this._sessionId;
-  }
-
-  consumeSessionInvalidation(): boolean {
-    return false;
-  }
-
-  setResumeCheckpoint(_checkpointId: string | undefined): void {
-    // not supported
-  }
-
-  syncConversationState(
-    _conversation: ChatRuntimeConversationState | null,
-    _externalContextPaths?: string[],
-  ): void {
-    // not supported
-  }
-
-  setApprovalCallback(_callback: ApprovalCallback | null): void {
-    // not supported
-  }
-
-  setApprovalDismisser(_dismisser: (() => void) | null): void {
-    // not supported
-  }
-
-  setAskUserQuestionCallback(_callback: AskUserQuestionCallback | null): void {
-    // not supported
-  }
-
-  setExitPlanModeCallback(_callback: ExitPlanModeCallback | null): void {
-    // not supported
-  }
-
-  setPermissionModeSyncCallback(_callback: ((sdkMode: string) => void) | null): void {
-    // not supported
-  }
-
-  setSubagentHookProvider(_getState: () => SubagentRuntimeState): void {
-    // not supported
-  }
-
-  setAutoTurnCallback(_callback: ((result: AutoTurnResult) => void) | null): void {
-    // not supported
-  }
-
-  buildSessionUpdates(_params: {
-    conversation: Conversation | null;
-    sessionInvalidated: boolean;
-  }): SessionUpdateResult {
+  buildSessionUpdates(_params: { conversation: Conversation | null; sessionInvalidated: boolean }): SessionUpdateResult {
     return { updates: {} };
   }
 
-  resolveSessionIdForFork(_conversation: Conversation | null): string | null {
-    return null;
-  }
-
-  async getSupportedCommands(): Promise<SlashCommand[]> {
-    return [];
-  }
-
-  async reloadMcpServers(): Promise<void> {
-    // not supported
-  }
-
-  consumeTurnMetadata(): ChatTurnMetadata {
-    return {};
-  }
-
-  async rewind(
-    _userMessageId: string,
-    _assistantMessageId: string,
-  ): Promise<ChatRewindResult> {
-    throw new Error('Rewind not supported by ClawCode provider');
-  }
+  resolveSessionIdForFork(_conv: Conversation | null): string | null { return null; }
+  async getSupportedCommands(): Promise<SlashCommand[]> { return []; }
+  async reloadMcpServers(): Promise<void> {}
+  consumeTurnMetadata(): ChatTurnMetadata { return {}; }
+  async rewind(_uid: string, _aid: string): Promise<ChatRewindResult> { throw new Error('Not supported'); }
 
   private resolveCliPath(): string | null {
-    const services = getClawCodeWorkspaceServices();
-    if (!services) return null;
-    return services.cliResolver.resolveFromSettings({});
+    // 1. Check ~/.cargo/bin/claw (most common install path)
+    const cargoPath = join(homedir(), '.cargo', 'bin', 'claw');
+    if (existsSync(cargoPath)) return cargoPath;
+
+    // 2. Try via PATH
+    const envPath = process.env.PATH || '';
+    for (const dir of envPath.split(':')) {
+      const candidate = join(dir, 'claw');
+      if (existsSync(candidate)) return candidate;
+    }
+
+    return null;
   }
 }
