@@ -27,7 +27,14 @@ export class ClawCodeCliResolver implements ProviderCliResolver {
       return configured;
     }
 
-    // 2. Try `which claw`
+    // 2. Check Cargo install path first (our built binary with --structured support)
+    const cargoPath = join(homedir(), '.cargo', 'bin', 'claw');
+    if (existsSync(cargoPath)) {
+      this.cachedPath = cargoPath;
+      return cargoPath;
+    }
+
+    // 3. Try `which claw` (may find older system-wide install)
     try {
       const cmd = platform() === 'win32' ? 'where.exe' : 'which';
       const result = execSync(`${cmd} claw`, { encoding: 'utf-8' }).trim();
@@ -39,9 +46,8 @@ export class ClawCodeCliResolver implements ProviderCliResolver {
       // not in PATH
     }
 
-    // 3. Check common install locations
+    // 4. Check other common install locations
     const candidates = [
-      join(homedir(), '.cargo', 'bin', 'claw'),
       join(homedir(), '.rustup', 'toolchains', 'stable-*', 'bin', 'claw'),
     ];
 
