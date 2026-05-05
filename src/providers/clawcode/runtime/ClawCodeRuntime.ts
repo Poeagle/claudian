@@ -253,6 +253,26 @@ export class ClawCodeRuntime implements ChatRuntime {
     }
   }
 
+  /** Maps ClawCode snake_case tool names to Claudian PascalCase names. */
+  private normalizeToolName(name: string): string {
+    const map: Record<string, string> = {
+      'read_file': 'Read',
+      'write_file': 'Write',
+      'edit_file': 'Edit',
+      'glob_search': 'Glob',
+      'grep_search': 'Grep',
+      'bash': 'Bash',
+      'ls': 'LS',
+      'web_fetch': 'WebFetch',
+      'web_search': 'WebSearch',
+      'tool_search': 'ToolSearch',
+      'todo_write': 'TodoWrite',
+      'apply_patch': 'apply_patch',
+      'write_stdin': 'write_stdin',
+    };
+    return map[name] || name;
+  }
+
   private eventToChunk(event: StructuredEvent): StreamChunk | null {
     switch (event.type) {
       case 'text':
@@ -264,7 +284,18 @@ export class ClawCodeRuntime implements ChatRuntime {
         try {
           if (event.tool_input) input = JSON.parse(event.tool_input);
         } catch { /* use empty object */ }
-        return { type: 'tool_use', id: event.tool_use_id ?? '', name: event.tool_name ?? '', input };
+        // Normalize input field names (ClawCode uses 'path' → Claudian expects 'file_path')
+        const name = this.normalizeToolName(event.tool_name ?? '');
+        if (input.path !== undefined && input.file_path === undefined) {
+          input.file_path = input.path;
+        }
+        if (input.pattern !== undefined && input.pattern_input === undefined) {
+          // ClawCode uses 'pattern' for both Glob and Grep — already matches Claudian
+        }
+        if (input.command !== undefined && input.cmd === undefined) {
+          // ClawCode bash uses 'command' — matches Claudian
+        }
+        return { type: 'tool_use', id: event.tool_use_id ?? '', name, input };
       }
       case 'tool_result':
         return { type: 'tool_result', id: event.tool_use_id ?? '', content: event.tool_output ?? '', isError: event.is_error };
