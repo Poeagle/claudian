@@ -150,10 +150,15 @@ export class ClawCodeRuntime implements ChatRuntime {
     turnOrPrompt: PreparedChatTurn,
     _conversationHistory?: ChatMessage[],
   ): AsyncGenerator<StreamChunk> {
-    console.log('[ClawCode] query() called, _ready=', this._ready, 'process=', !!this.process);
-    if (!this._ready || !this.process?.stdin || !this.lineReader) {
-      console.log('[ClawCode] runtime not ready, ensureReady was not called or failed');
-      yield { type: 'error', content: 'ClawCode runtime is not ready' };
+    if (!this._ready) {
+      const ready = await this.ensureReady();
+      if (!ready) {
+        yield { type: 'error', content: 'ClawCode runtime is not ready' };
+        return;
+      }
+    }
+    if (!this.process?.stdin || !this.lineReader) {
+      yield { type: 'error', content: 'ClawCode runtime process not available' };
       return;
     }
 
